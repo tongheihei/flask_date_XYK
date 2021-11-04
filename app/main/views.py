@@ -3,9 +3,9 @@ from os import error
 from flask import render_template,flash,url_for,abort,request
 from flask_sqlalchemy import Pagination
 from werkzeug.utils import redirect
-from app.main.forms import EditProfileForm,EditProfileAdminForm,PostForm
+from app.main.forms import EditProfileForm,EditProfileAdminForm,PostForm,CommentForm
 from . import main
-from ..models import User,Role,Post,Permission
+from ..models import User,Role,Post,Permission,Comment
 from .. import db
 from flask_login import login_required,current_user
 from ..decorators import admin_required,permission_required
@@ -73,10 +73,28 @@ def edit_profile_admin(id):
     form.about_me.data = user.about_me
     return render_template('edit_profile.html', form=form, user=user)
 
-@main.route('/post/<int:id>')
+@main.route('/post/<int:id>', methods=['GET', 'POST'])
 def post(id):
     post = Post.query.get_or_404(id)
-    return render_template('post.html', posts=[post])
+    form = CommentForm()
+    if form.validate_on_submit():
+        comment = Comment(body=form.body.data,
+                          post=post,
+                          author=current_user._get_current_object())
+        db.session.add(comment)
+        db.session.commit()
+        flash('评论发表成功')
+        return redirect(url_for('.post', id=post.id, page=-1))
+    page = request.args.get('page', 1, type=int)
+    if page == -1:
+        page = (post.comments.count() - 1) // \
+          10 + 1
+    pagination = post.comments.order_by(Comment.timestamp.asc()).paginate(
+        page, per_page=10,
+        error_out=False)
+    comments = pagination.items
+    return render_template('post.html', posts=[post], form=form,
+                           comments=comments, pagination=pagination)
 
 @main.route('/edit/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -173,3 +191,22 @@ def delete_post(id):
         error_out=False)
     posts = pagination.items
     return redirect(url_for('.index'))
+@main.route('/editcomment/<int:id>',methods=["GET","POST"])
+def editcomment(id):
+    comment = Comment.query.get_or_404(id)
+
+    if current_user != comment.author and \
+        not current_user.can(Permission.ADMIN):
+        abort(403)
+    form = CommentForm()
+    if form.validate_on_submit():
+        comment.body = form.body.data
+        db.session.add(comment)
+        db.session.commit()
+        flash('编辑成功')
+        return redirect(url_for('.post', id = comment.post_id))
+    
+    form.body.data = comment.body
+    return  render_template('edit_comment.html', form = form)
+
+

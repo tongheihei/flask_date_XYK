@@ -16,28 +16,30 @@
                     {{ post.body }}
                 {% endif %}
             </div>
-            <div class="post-footer">
+            <div class="post-footer" style="text-align: right;">
                 {% if current_user == post.author %}
                 <a href="{{ url_for('.edit', id=post.id) }}">
-                    <span class="label label-primary">Edit</span>
+                    <span class="glyphicon glyphicon-pencil"></span>
                 </a>
                 {% elif current_user.is_administrator() %}
                 <a href="{{ url_for('.edit', id=post.id) }}">
-                    <span class="label label-danger">Edit [Admin]</span>
+                    <span class="glyphicon glyphicon-pencil"></span>
                 </a>
                 {% endif %}
-                <a href="{{ url_for('.post', id=post.id) }}">
-                    <span class="label label-info">查看</span>
-                </a>
+                <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
                 {% if current_user == post.author %}
                 <a href="{{ url_for('.delete_post', id=post.id) }}">
-                    <span class="label label-warning">删除</span>
-                </a>
+                    <span class="glyphicon glyphicon-trash"></span>
+                </a> 
                 {% elif current_user.is_administrator() %}
                 <a href="{{ url_for('.delete_post', id=post.id) }}">
-                    <span class="label label-danger">删除 [Admin]</span>
+                    <span class="glyphicon glyphicon-trash"></span>
                 </a>
                 {% endif %}
+                <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+                <a href="{{ url_for('.post', id=post.id) }}#comments">
+                    <span class="label label-primary">{{ post.comments.count() }} Comments</span>
+                </a>
             </div>
         </div>
     </li>

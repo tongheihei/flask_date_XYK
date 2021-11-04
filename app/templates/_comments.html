@@ -1,4 +1,6 @@
-.profile-thumbnail {
+<head>
+    <style>
+       .profile-thumbnail {
     position: absolute;
 }
 .profile-header {
@@ -105,3 +107,40 @@ div.flask-pagedown-preview h3 {
 .table.followers tr {
     border-bottom: 1px solid #e0e0e0;
 }
+    </style>
+</head>
+<ul class="comments">
+    {% for comment in comments %}
+    <li class="comment">
+        <div class="comment-thumbnail">
+            <a href="{{ url_for('.user', username=comment.author.username) }}">
+                <img class="img-rounded profile-thumbnail" src="{{ comment.author.gravatar(size=40) }}">
+            </a>
+        </div>
+        <div class="comment-content">
+            <div class="comment-date">{{ moment(comment.timestamp).fromNow() }}</div>
+            <div class="comment-author"><a href="{{ url_for('.user', username=comment.author.username) }}">{{ comment.author.username }}</a></div>
+            <div class="comment-body">
+                {% if comment.body_html %}
+                    {{ comment.body_html | safe }}
+                {% else %}
+                    {{ comment.body }}
+                {% endif %}
+            </div>
+        </div>
+        <div style="text-align: right;">
+            {% if current_user == posts[0].author %}
+            <a href="{{ url_for('.editcomment', id=comment.id )}}">
+                <span class="glyphicon glyphicon-pencil"></span>
+            </a>
+            {% elif current_user.is_administrator() %}
+            <a href="{{ url_for('.editcomment', id=comment.id )}}">
+                <span class="glyphicon glyphicon-pencil"></span>
+            </a>
+            {% endif %}
+            <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+        </div>
+        
+    </li>
+    {% endfor %}
+</ul>
