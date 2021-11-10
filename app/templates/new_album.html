@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}  创建{% endblock %}
+{% block page_content %}
+<div class="page-header">
+    <h1>创建相册</h1>
+</div>
+
+<ol class="breadcrumb" id="navigation">
+    <li><a href="{{ url_for('.index') }}">首页</a></li>
+    <li class="active">新建照片</li>
+    <li class="pull-right"><a href="{{ url_for('main.index') }}">返回我的主页</a></li>
+</ol>
+
+<div class="loader"></div>
+<div class="mask-bg"></div>
+
+<div class="col-md-6">
+    {{ wtf.quick_form(form) }}
+</div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    {{ pagedown.include_pagedown() }}
+{% endblock %}

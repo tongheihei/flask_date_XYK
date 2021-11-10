@@ -1,10 +1,14 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, BooleanField, SelectField,\
+from flask_wtf import Form
+from wtforms import StringField,TextAreaField, BooleanField, SelectField,\
     SubmitField
 from wtforms.validators import DataRequired, Length, Email, Regexp
 from wtforms import ValidationError
-from ..models import Role, User
+from ..models import Album, Photo, Role, User
 from flask_pagedown.fields import PageDownField
+from flask_wtf.file import FileField, FileAllowed, FileRequired
+from .. import photos
+from flask_login import current_user
 
 
 class NameForm(FlaskForm):
@@ -53,3 +57,17 @@ class PostForm(FlaskForm):
 class CommentForm(FlaskForm):
     body = StringField('输入您的评论', validators=[DataRequired()])
     submit = SubmitField('Submit')
+class NewAlbumForm(FlaskForm):
+    title = StringField("相册名",validators=[DataRequired()])
+    about = TextAreaField("介绍")
+    photo = FileField(u'您的相册封面', validators=[
+        FileRequired(u'你还没有选择图片！'),
+        FileAllowed(photos, u'只能上传图片！')
+    ])
+    submit = SubmitField('提交')
+class AddPhotoForm(Form):
+    photo = FileField(u'图片', validators=[
+        FileRequired(),
+        FileAllowed(photos, u'只能上传图片！')
+    ])
+    submit = SubmitField(u'提交')

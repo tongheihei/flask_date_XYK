@@ -75,6 +75,26 @@ class Follow(db.Model):
     followed_id = db.Column(db.Integer, db.ForeignKey('users.id'),
                             primary_key=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+class Album(db.Model):
+    __tablename__ = 'albums'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(64))  # 相册标题
+    about = db.Column(db.Text)  # 相册信息
+    cover = db.Column(db.String(64))  # 相册封面图片url
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    photos = db.relationship('Photo', backref='album', lazy='dynamic')
+class Photo(db.Model):
+    __tablename__ = 'photos'
+    id = db.Column(db.Integer, primary_key=True)
+    url = db.Column(db.String(64))  # 原图url
+    url_s = db.Column(db.String(64))  # 展示图url
+    url_t = db.Column(db.String(64))  # 缩略图url
+    about = db.Column(db.Text)  # 图片介绍
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    album_id = db.Column(db.Integer, db.ForeignKey('albums.id'))
+    comments = db.relationship('Comment', backref='photo', lazy='dynamic')
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -85,8 +105,8 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(64),unique = True, index = True)
     confirmed = db.Column(db.Boolean, default=False)
     avatar_hash = db.Column(db.String(64))
-
-
+    photos = db.relationship('Photo', backref='author', lazy='dynamic')
+    albums = db.relationship('Album', backref='author', lazy='dynamic')
     name = db.Column(db.String(64))
     location = db.Column(db.String(64))
     about_me = db.Column(db.Text())
@@ -218,6 +238,7 @@ class Comment(db.Model):
     disabled = db.Column(db.Boolean)
     author_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     post_id = db.Column(db.Integer, db.ForeignKey('posts.id'))
+    photo_id = db.Column(db.Integer, db.ForeignKey('photos.id'))
 
     @staticmethod
     def on_changed_body(target, value, oldvalue, initiator):

@@ -1,14 +1,19 @@
 from operator import methodcaller
 from os import error
-from flask import render_template,flash,url_for,abort,request
+from flask import render_template,flash,url_for,abort,request,current_app,send_from_directory
 from flask_sqlalchemy import Pagination
 from werkzeug.utils import redirect
-from app.main.forms import EditProfileForm,EditProfileAdminForm,PostForm,CommentForm
+from app.main.forms import EditProfileForm,EditProfileAdminForm,PostForm,CommentForm,NewAlbumForm,AddPhotoForm
 from . import main
-from ..models import User,Role,Post,Permission,Comment
-from .. import db
+from ..models import User,Role,Post,Permission,Comment,Album,Photo
+from .. import db,photos
 from flask_login import login_required,current_user
 from ..decorators import admin_required,permission_required
+import time
+import hashlib
+import PIL
+import os
+from PIL import Image
 @main.route('/',methods=['GET','POST'])
 def index():   
     form = PostForm()
@@ -208,5 +213,117 @@ def editcomment(id):
     
     form.body.data = comment.body
     return  render_template('edit_comment.html', form = form)
+@main.route('/deletecomment/<int:id>')
+def deletecomment(id):
+    now_comment = Comment.query.filter_by(id=id).first()
+    goid = now_comment.post_id
+    db.session.delete(now_comment)
+    db.session.commit()
+    return redirect(url_for('.post', id = goid))
+
+@main.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(current_app.config['UPLOADED_PHOTOS_DEST'],
+                               filename)
+
+# add different suffix for image
+img_suffix = {
+    300: '_t',  # thumbnail
+    800: '_s'  # show
+}
+def image_resize(image, base_width):
+    #: create thumbnail
+    filename, ext = os.path.splitext(image)
+    img = Image.open(photos.path(image))
+    if img.size[0] <= base_width:
+        return photos.url(image)
+    w_percent = (base_width / float(img.size[0]))
+    h_size = int((float(img.size[1]) * float(w_percent)))
+    img = img.resize((base_width, h_size), PIL.Image.ANTIALIAS)
+    img.save(os.path.join(current_app.config['UPLOADED_PHOTOS_DEST'], filename + img_suffix[base_width] + ext))
+    return url_for('.uploaded_file', filename=filename + img_suffix[base_width] + ext)
+
+def save_image(files):
+    print(1)
+    photo_amount = len(files)
+    if photo_amount > 50:
+        flash(u'抱歉，测试阶段每次上传不超过50张！', 'warning')
+        return redirect(url_for('.new_album'))
+    images = []
+    for img in files:
+        filename = hashlib.md5((current_user.username + str(time.time())).encode('UTF-8')).hexdigest()[:10]
+        image = photos.save(img, name=filename + '.')
+        file_url = photos.url(image)
+        url_s = image_resize(image, 800)
+        url_t = image_resize(image, 300)
+        images.append((file_url, url_s, url_t))
+    return images
+@main.route('/new-album', methods=['GET', 'POST'])
+@login_required
+def new_album():
+    print(1111111111111)
+    form = NewAlbumForm()
+    if form.validate_on_submit(): # current_user.can(Permission.CREATE_ALBUMS)
+        if request.method == 'POST' and 'photo' in request.files:
+            print(1)
+            images = save_image(request.files.getlist('photo'))
+        print(request.files)
+        title = form.title.data
+        about = form.about.data
+        author = current_user._get_current_object()
+        album = Album(title=title, about=about,cover=images[0][2]
+                     ,author=author)
+        db.session.add(album)
+        for url in images:
+            photo = Photo(url=url[0], url_s=url[1], url_t=url[2],
+                          album=album, author=current_user._get_current_object())
+            db.session.add(photo)
+        db.session.commit()
+        flash(u'相册创建成功！', 'success')
+        return redirect(url_for('.index'))
+    
+
+    return render_template('new_album.html', form=form)
+@main.route('/add-photo/<int:id>', methods=['GET', 'POST'])
+@login_required
+def add_photo(id):
+    album = Album.query.get_or_404(id)
+    form = AddPhotoForm()
+    if form.validate_on_submit(): # current_user.can(Permission.CREATE_ALBUMS)
+        if request.method == 'POST' and 'photo' in request.files:
+            images = save_image(request.files.getlist('photo'))
+
+            for url in images:
+                photo = Photo(url=url[0], url_s=url[1], url_t=url[2],
+                              album=album, author=current_user._get_current_object())
+                db.session.add(photo)
+            db.session.commit()
+        flash(u'图片添加成功！', 'success')
+        return redirect(url_for('.index', id=album.id))
+    return render_template('add_photo.html', form=form, album=album)
 
 
+@main.route('/upload', methods=['GET', 'POST'])
+@login_required
+def upload():
+    return render_template('upload.html')
+
+
+@main.route('/upload-add', methods=['GET', 'POST'])
+@login_required
+def upload_add():
+    id = request.form.get('album')
+    return redirect(url_for('.add_photo', id=id))
+
+@main.route('/photogragh', methods=['GET', 'POST'])
+@login_required
+def albums():
+    page = request.args.get('page', 1, type=int)
+    pagination = Album.query.order_by(Album.timestamp.desc()).paginate(
+        page, per_page = 1, error_out = False)
+
+    albums = pagination.items
+    for album in albums:
+        print(album.cover)
+
+    return render_template('albums.html', user=current_user, albums=albums,pagination=pagination)

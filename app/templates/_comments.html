@@ -139,6 +139,15 @@ div.flask-pagedown-preview h3 {
             </a>
             {% endif %}
             <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+            {% if current_user == posts[0].author %}
+            <a href="{{ url_for('.deletecomment', id=comment.id )}}">
+                <span class="glyphicon glyphicon-trash"></span>
+            </a>
+            {% elif current_user.is_administrator() %}
+            <a href="{{ url_for('.deletecomment', id=comment.id )}}">
+                <span class="glyphicon glyphicon-trash"></span>
+            </a>
+            {% endif %}
         </div>
         
     </li>

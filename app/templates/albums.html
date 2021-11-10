@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+{% import "_macros.html" as macros %}
+
+{% block title %}{{ user.name }} - Ourwebsite{% endblock %}
+
+{% block page_content %}
+<ol class="breadcrumb">
+    <li><a href="{{ url_for('.index') }}">主页</a></li>
+    <li class="active">{% if current_user == user %}我{% else %}{{ user.name }}{% endif %}的相册</li>
+</ol>
+
+<div class="row">
+    <div class="col-md-9">
+        <div class="text-center container-fluid">
+            {% if album_count == 0 %}
+            <h3>还没有相册，快来<a href="{{ url_for('.new_album') }}">创建</a>一个吧！</h3>
+            {% endif %}
+            <div class="row text-center">
+                {% for album in albums %}
+                <div class="album col-md-3">
+                    <div class="album-frame">
+                        <a class="thumbnail album-thumbnail" href="#">
+                            <img class="img-responsive portrait" src="{{ album.cover }}">
+                        </a>
+                    </div>
+                    <div class="info">
+                        <h5><a href="#">{{ album.title }}</a></h5>
+                        <span>{{ album.photos.count() }}张图片</span>
+                        <span>创建于{{ moment(album.timestamp).format('L') }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+</div>
+
+<div class="text-center">
+    {{ macros.pagination_widget(pagination, '.albums', username=user.username) }}
+</div>
+<hr>
+
+{% endblock %}

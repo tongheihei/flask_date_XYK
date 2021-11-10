@@ -9,6 +9,7 @@ class Config:
     MAIL_USE_SSL = True
     MAIL_USERNAME = 'a18030714691@163.com'
     MAIL_PASSWORD = 'PCJVQESUGZLTUJIT'
+    UPLOADED_PHOTOS_DEST = os.getcwd() + '/app/static/img/'
     FLASKY_MAIL_SUBJECT_PREFIX = '[Flasky]'
     FLASKY_MAIL_SENDER = 'a18030714691@163.com'
     FLASKY_ADMIN = 'a18030714691@163.com'
