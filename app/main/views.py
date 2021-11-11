@@ -209,7 +209,10 @@ def editcomment(id):
         db.session.add(comment)
         db.session.commit()
         flash('编辑成功')
-        return redirect(url_for('.post', id = comment.post_id))
+        if (comment.post_id is not None):
+            return redirect(url_for('.post', id = comment.post_id))
+        else:
+            return redirect(url_for('.photo', id = comment.photo_id))
     
     form.body.data = comment.body
     return  render_template('edit_comment.html', form = form)
@@ -217,9 +220,14 @@ def editcomment(id):
 def deletecomment(id):
     now_comment = Comment.query.filter_by(id=id).first()
     goid = now_comment.post_id
+    comment = now_comment
     db.session.delete(now_comment)
     db.session.commit()
-    return redirect(url_for('.post', id = goid))
+    if (comment.post_id is not None):
+        return redirect(url_for('.post', id = comment.post_id))
+    else:
+        return redirect(url_for('.photo', id = comment.photo_id))
+    
 
 @main.route('/uploads/<filename>')
 def uploaded_file(filename):
@@ -260,6 +268,7 @@ def save_image(files):
     return images
 @main.route('/new-album', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def new_album():
     print(1111111111111)
     form = NewAlbumForm()
@@ -305,6 +314,7 @@ def add_photo(id):
 
 @main.route('/upload', methods=['GET', 'POST'])
 @login_required
+@admin_required
 def upload():
     return render_template('upload.html')
 
@@ -327,3 +337,139 @@ def albums():
         print(album.cover)
 
     return render_template('albums.html', user=current_user, albums=albums,pagination=pagination)
+
+
+@main.route('/album/<int:id>')
+def album(id):
+    album = Album.query.get_or_404(id)
+    # display default cover when an album is empty
+    placeholder = 'https://z3.ax1x.com/2021/07/30/WLTFP0.jpg'
+    photo_amount = len(list(album.photos))
+    if photo_amount == 0:
+        album.cover = placeholder
+    elif photo_amount != 0 and album.cover == placeholder:
+        album.cover = album.photos[0].path
+
+    page = request.args.get('page', 1, type=int)
+    pagination = album.photos.order_by(Photo.timestamp.desc()).paginate(
+            page, per_page = 10,
+            error_out=False)
+    photos = pagination.items
+    if len(photos) == 0:
+        no_pic = True
+    else:
+        no_pic = False
+    return render_template('album.html', album=album, photos=photos, pagination=pagination, no_pic=no_pic)
+@main.route('/photo/<int:id>', methods=['GET', 'POST'])
+def photo(id):
+    photo = Photo.query.get_or_404(id)
+    album = photo.album
+
+    photo_sum = len(list(album.photos))
+    form = CommentForm()
+    photo_index = [p.id for p in album.photos.order_by(Photo.timestamp.desc())].index(photo.id) + 1
+
+    if form.validate_on_submit():
+        if current_user.is_authenticated:
+            comment = Comment(body=form.body.data,
+                              photo=photo,
+                              author=current_user._get_current_object())
+            db.session.add(comment)
+            db.session.commit()
+            cc = Comment.query.filter_by(photo = photo)
+            for c in cc:
+                print (c.body)
+            flash(u'你的评论已经发表。', 'success')
+            return redirect(url_for('.photo', id=photo.id))
+        else:
+            flash(u'请先登录。', 'info')
+    page = request.args.get('page', 1, type=int)
+    pagination = photo.comments.order_by(Comment.timestamp.desc()).paginate(
+        page, per_page=20,
+        error_out=False)
+    comments = pagination.items
+    amount = len(comments)
+    print(amount)
+
+    return render_template('photo.html', form=form, album=album, amount=amount,
+                           photo=photo, pagination=pagination,
+                           comments=comments, photo_index=photo_index, photo_sum=photo_sum)
+
+@main.route('/photo/n/<int:id>')
+def photo_next(id):
+    "redirect to next imgae"
+    photo_now = Photo.query.get_or_404(id)
+    album = photo_now.album
+    photos = album.photos.order_by(Photo.timestamp.desc())
+    position = list(photos).index(photo_now) + 1
+    if position == len(list(photos)):
+        flash(u'已经是最后一张了。', 'info')
+        return redirect(url_for('.photo', id=id))
+    photo = photos[position]
+    return redirect(url_for('.photo', id=photo.id))
+
+
+@main.route('/photo/p/<int:id>')
+def photo_previous(id):
+    "redirect to previous imgae"
+    photo_now = Photo.query.get_or_404(id)
+    album = photo_now.album
+    photos = album.photos.order_by(Photo.timestamp.desc())
+    position = list(photos).index(photo_now) - 1
+    if position == -1:
+        flash(u'已经是第一张了。', 'info')
+        return redirect(url_for('.photo', id=id))
+    photo = photos[position]
+    return redirect(url_for('.photo', id=photo.id))
+
+@main.route('/save-photo-edit/<int:id>', methods=['GET', 'POST'])
+@login_required
+def save_photo_edit(id):
+    photo = Photo.query.get_or_404(id)
+    album = photo.album
+    photo.about = request.form.get('about', '')
+    # set default_value to avoid 400 error.
+    default_value = album.cover
+    album.cover = request.form.get('cover', default_value)
+    db.session.add(photo)
+    db.session.add(album)
+    db.session.commit()
+    flash(u'更改已保存。', 'success')
+    return redirect(url_for('.photo', id=id))
+    
+@main.route('/delete/photo/<id>')
+@login_required
+def delete_photo(id):
+    if not current_user.can(Permission.ADMIN):
+        abort(403)
+    photo = Photo.query.filter_by(id=id).first()
+    album = photo.album
+    photos = album.photos.order_by(Photo.timestamp.desc())
+    for pho in photos:
+        print(pho.id,pho.url)
+    position = list(photos).index(photo) - 1
+    db.session.delete(photo)
+    db.session.commit()
+    if (position == -1):
+        if len(list(photos)) == 0:
+
+            flash(u'删除成功。', 'success')
+            return redirect(url_for('.albums'))
+        else:
+            return redirect(url_for('.photo',id = photos[0].id))
+    photo = photos[position]
+    flash(u'删除成功。', 'success')
+    return redirect(url_for('.photo', id=photo.id))
+@main.route('/delete/album/<id>')
+@login_required
+def delete_album(id):
+    album = Album.query.filter_by(id=id).first()
+    if album is None:
+        flash(u'无效的操作。', 'warning')
+        return redirect(url_for('.index', username=current_user.username))
+    if not current_user.can(Permission.ADMIN):
+        abort(403)
+    db.session.delete(album)
+    db.session.commit()
+    flash(u'删除成功。', 'success')
+    return redirect(url_for('.albums', username=album.author.username))
